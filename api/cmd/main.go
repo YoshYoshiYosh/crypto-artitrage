@@ -5,17 +5,10 @@ import (
 )
 
 var CoincheckApiClient = coincheck.NewCoincheckApiClient()
-
-var coincheckApiType = map[string]string{
-	"accountBalance":            "/api/accounts/balance",
-	"tradeRate":                 "/api/exchange/orders/rate",
-	"storeRate":                 "/api/rate",
-	"getTransactions":           "/api/exchange/orders/transactions",
-	"getTransactionsPagination": "/api/exchange/orders/transactions_pagination",
-	"newOrder":                  "/api/exchange/orders",
-}
+var coincheckApiType = coincheck.ApiType
 
 func main() {
-	coincheckRequestPath := coincheckApiType["accountBalance"]
-	CoincheckApiClient.CallApi(coincheckRequestPath)
+	// goroutineで動かしたい
+	CoincheckApiClient.CallApi(coincheckApiType["accountBalance"])
+	CoincheckApiClient.CallApi(coincheckApiType["storeRate"])
 }

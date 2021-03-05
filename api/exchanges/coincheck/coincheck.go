@@ -24,6 +24,11 @@ type CoincheckApiClient struct {
 	HttpRequest *http.Request
 }
 
+type ApiPathAndMethod struct {
+	path   string
+	method string
+}
+
 var cfg, _ = ini.Load("./api/config/config.ini")
 
 type BalanceInfo struct {
@@ -63,22 +68,18 @@ func NewCoincheckApiClient() *CoincheckApiClient {
 func (client *CoincheckApiClient) SetRequestHeader() {
 	// nonce（リクエストごとに増加する数字として現在時刻のUNIXタイム）を設定
 	nonce := strconv.FormatInt(time.Now().Unix(), 10)
-	fmt.Println("nonce")
-	fmt.Println(nonce)
 
 	// nonce, リクエストURL, リクエストボディを連結
 	body, _ := ioutil.ReadAll(client.HttpRequest.Body)
-	fmt.Println("body")
-	fmt.Println(body)
 	message := nonce + client.HttpRequest.URL.String() + string(body)
-	fmt.Println("message")
-	fmt.Println(message)
+
 	// 署名してSignatureを作成
 	hmac := hmac.New(sha256.New, []byte(client.Secret))
 	hmac.Write([]byte(message))
 	sign := hex.EncodeToString(hmac.Sum(nil))
-	fmt.Println("sign")
-	fmt.Println(sign)
+
+	//リクエストヘッダに初期値を代入しないとエラーになる
+	client.HttpRequest.Header = make(http.Header)
 	// ヘッダーをセットする用のmapを作成
 	header := map[string]string{
 		"ACCESS-KEY":       client.Key,
@@ -87,38 +88,32 @@ func (client *CoincheckApiClient) SetRequestHeader() {
 	}
 
 	// requestにヘッダーを追加
-	client.HttpRequest.Header = make(http.Header)
 	for key, value := range header {
 		client.HttpRequest.Header.Set(key, value)
 	}
-
-	fmt.Println("header")
-	fmt.Println(client.HttpRequest.Header)
 
 	if string(body) != "" {
 		client.HttpRequest.Header.Set("Content-Type", "application/json")
 	}
 }
 
-// func (client *CoincheckApiClient) CallApi(path string, ch chan int) {
-func (client *CoincheckApiClient) CallApi(path string) {
-	requestURL, err := url.Parse(base_url + path)
+func (client *CoincheckApiClient) CallApi(pathAndMethod ApiPathAndMethod) {
+	path, httpMethod := pathAndMethod.path, pathAndMethod.method
+
+	requestURL, _ := url.Parse(baseUrl + path)
 
 	var data []byte
 
 	switch path {
-	case apiType["accountBalance"]:
-	case apiType["getTransactions"]:
-		data = []byte{}
-	case apiType["tradeRate"]:
-		requestURL, _ = url.Parse(setQueryStringOfRate(base_url+path, orderType["buy"], rate["mona"], 1))
-	case apiType["storeRate"]:
-		requestURL, _ = url.Parse(addPathOfStoreRate(base_url+path, storeRate["xrp"]))
+	case ApiType["tradeRate"].path:
+		requestURL, _ = url.Parse(setQueryStringOfRate(baseUrl+path, orderType["buy"], rate["mona"], 1))
+	case ApiType["storeRate"].path:
+		requestURL, _ = url.Parse(addPathOfStoreRate(baseUrl+path, storeRate["xrp"]))
 	default:
 		data = []byte{}
 	}
 
-	client.HttpRequest, _ = http.NewRequest("GET", requestURL.String(), bytes.NewBuffer(data))
+	client.HttpRequest, _ = http.NewRequest(httpMethod, requestURL.String(), bytes.NewBuffer(data))
 	client.SetRequestHeader()
 
 	response, err := client.HttpClient.Do(client.HttpRequest)
@@ -133,13 +128,10 @@ func (client *CoincheckApiClient) CallApi(path string) {
 
 	// ここでchannelに値を渡す
 	switch path {
-	case apiType["accountBalance"]:
+	case ApiType["accountBalance"].path:
 		balanceLog(body)
-	case apiType["tradeRate"]:
-	case apiType["storeRate"]:
-		fmt.Println(string(body))
-	case apiType["getTransactions"]:
 	default:
+		fmt.Println(string(body))
 	}
 }
 
@@ -169,7 +161,7 @@ func balanceLog(responseBody []byte) {
 }
 
 const (
-	base_url = "https://coincheck.com"
+	baseUrl = "https://coincheck.com"
 )
 
 var orderType = map[string]string{
@@ -202,13 +194,13 @@ var storeRate = map[string]string{
 	"enj":  "enj_jpy",
 }
 
-var apiType = map[string]string{
-	"accountBalance":            "/api/accounts/balance",
-	"tradeRate":                 "/api/exchange/orders/rate",
-	"storeRate":                 "/api/rate",
-	"getTransactions":           "/api/exchange/orders/transactions",
-	"getTransactionsPagination": "/api/exchange/orders/transactions_pagination",
-	"newOrder":                  "/api/exchange/orders",
+var ApiType = map[string]ApiPathAndMethod{
+	"accountBalance":            {"/api/accounts/balance", "GET"},
+	"tradeRate":                 {"/api/exchange/orders/rate", "GET"},
+	"storeRate":                 {"/api/rate", "GET"},
+	"getTransactions":           {"/api/exchange/orders/transactions", "GET"},
+	"getTransactionsPagination": {"/api/exchange/orders/transactions_pagination", "GET"},
+	"newOrder":                  {"/api/exchange/orders", "POST"},
 }
 
 func getRateRequestBody(orderType, pair string) []byte {
