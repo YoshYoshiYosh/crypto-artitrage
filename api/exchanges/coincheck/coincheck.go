@@ -60,19 +60,25 @@ func NewCoincheckApiClient() *CoincheckApiClient {
 	}
 }
 
-func (client *CoincheckApiClient) SetRequestHeader(req *http.Request) {
+func (client *CoincheckApiClient) SetRequestHeader() {
 	// nonce（リクエストごとに増加する数字として現在時刻のUNIXタイム）を設定
 	nonce := strconv.FormatInt(time.Now().Unix(), 10)
+	fmt.Println("nonce")
+	fmt.Println(nonce)
 
 	// nonce, リクエストURL, リクエストボディを連結
-	body, _ := ioutil.ReadAll(req.Body)
-	message := nonce + req.URL.String() + string(body)
-
+	body, _ := ioutil.ReadAll(client.HttpRequest.Body)
+	fmt.Println("body")
+	fmt.Println(body)
+	message := nonce + client.HttpRequest.URL.String() + string(body)
+	fmt.Println("message")
+	fmt.Println(message)
 	// 署名してSignatureを作成
 	hmac := hmac.New(sha256.New, []byte(client.Secret))
 	hmac.Write([]byte(message))
 	sign := hex.EncodeToString(hmac.Sum(nil))
-
+	fmt.Println("sign")
+	fmt.Println(sign)
 	// ヘッダーをセットする用のmapを作成
 	header := map[string]string{
 		"ACCESS-KEY":       client.Key,
@@ -85,6 +91,9 @@ func (client *CoincheckApiClient) SetRequestHeader(req *http.Request) {
 	for key, value := range header {
 		client.HttpRequest.Header.Set(key, value)
 	}
+
+	fmt.Println("header")
+	fmt.Println(client.HttpRequest.Header)
 
 	if string(body) != "" {
 		client.HttpRequest.Header.Set("Content-Type", "application/json")
@@ -109,10 +118,10 @@ func (client *CoincheckApiClient) CallApi(path string) {
 		data = []byte{}
 	}
 
-	request, _ := http.NewRequest("GET", requestURL.String(), bytes.NewBuffer(data))
-	client.SetRequestHeader(request)
+	client.HttpRequest, _ = http.NewRequest("GET", requestURL.String(), bytes.NewBuffer(data))
+	client.SetRequestHeader()
 
-	response, err := client.HttpClient.Do(request)
+	response, err := client.HttpClient.Do(client.HttpRequest)
 	if err != nil {
 		log.Fatal(err)
 	}

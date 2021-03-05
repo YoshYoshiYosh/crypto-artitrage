@@ -16,6 +16,6 @@ var coincheckApiType = map[string]string{
 }
 
 func main() {
-	path := coincheckApiType["storeRate"]
-	CoincheckApiClient.CallApi(path)
+	coincheckRequestPath := coincheckApiType["accountBalance"]
+	CoincheckApiClient.CallApi(coincheckRequestPath)
 }
