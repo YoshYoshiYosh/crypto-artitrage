@@ -12,24 +12,17 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
-	"gopkg.in/ini.v1"
+	"crypto-artitrage/api/exchanges/common"
 )
 
-type CoincheckApiClient struct {
-	Key         string
-	Secret      string
-	HttpClient  *http.Client
-	HttpRequest *http.Request
-}
+type CoincheckApiClient common.ApiClient
 
-type ApiPathAndMethod struct {
-	path   string
-	method string
-}
+type ApiPathAndMethod common.ApiPathAndMethod
 
-var cfg, _ = ini.Load("./api/config/config.ini")
+var cfg = common.Config
 
 type BalanceInfo struct {
 	Success      bool   `json:"success"`
@@ -54,6 +47,10 @@ type RateRequestJson struct {
 	OrderType string  `json:"order_type"`
 	Pair      string  `json:"pair"`
 	Amount    float64 `json:"amount"`
+}
+
+type RateResponseJson struct {
+	Rate string `json:"rate"`
 }
 
 func NewCoincheckApiClient() *CoincheckApiClient {
@@ -97,17 +94,20 @@ func (client *CoincheckApiClient) SetRequestHeader() {
 	}
 }
 
-func (client *CoincheckApiClient) CallApi(pathAndMethod ApiPathAndMethod) {
-	path, httpMethod := pathAndMethod.path, pathAndMethod.method
+// https://teratail.com/questions/116661
+func (client *CoincheckApiClient) CallApi(pathAndMethod ApiPathAndMethod, wg *sync.WaitGroup) float64 {
+	defer wg.Done()
+
+	path, httpMethod := pathAndMethod.Path, pathAndMethod.Method
 
 	requestURL, _ := url.Parse(baseUrl + path)
 
 	var data []byte
 
 	switch path {
-	case ApiType["tradeRate"].path:
+	case ApiType["tradeRate"].Path:
 		requestURL, _ = url.Parse(setQueryStringOfRate(baseUrl+path, orderType["buy"], rate["mona"], 1))
-	case ApiType["storeRate"].path:
+	case ApiType["storeRate"].Path:
 		requestURL, _ = url.Parse(addPathOfStoreRate(baseUrl+path, storeRate["xrp"]))
 	default:
 		data = []byte{}
@@ -123,16 +123,22 @@ func (client *CoincheckApiClient) CallApi(pathAndMethod ApiPathAndMethod) {
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Fatal()
+		log.Fatal(err)
 	}
 
 	// ここでchannelに値を渡す
 	switch path {
-	case ApiType["accountBalance"].path:
+	case ApiType["accountBalance"].Path:
 		balanceLog(body)
 	default:
-		fmt.Println(string(body))
+		// fmt.Println(string(body))
 	}
+
+	var RateResponseJson RateResponseJson
+	json.Unmarshal(body, &RateResponseJson)
+
+	rate, _ := strconv.ParseFloat(RateResponseJson.Rate, 64)
+	return rate
 }
 
 func balanceLog(responseBody []byte) {
