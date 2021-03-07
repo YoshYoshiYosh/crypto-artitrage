@@ -4,6 +4,7 @@ import (
 	"crypto-artitrage/api/exchanges/binance"
 	"crypto-artitrage/api/exchanges/coincheck"
 	"crypto-artitrage/api/exchanges/currency_convert"
+	"crypto-artitrage/api/exchanges/poloniex"
 	"fmt"
 	"sync"
 	"time"
@@ -24,10 +25,14 @@ var BinanceApiClient = binance.NewBinanceApiClient()
 var binanceApiType = binance.ApiType
 var binanceRate float64
 
+var PoloniexApiClient = poloniex.NewPoloniexApiClient()
+var poloniexApiType = poloniex.ApiType
+var poloniexRate float64
+
 func main() {
 	start := time.Now()
 	wg := &sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 	go func() {
 		yenPricePerDoller = currency_convert.GetYenPricePerDoller(wg)
 	}()
@@ -37,16 +42,23 @@ func main() {
 	go func() {
 		binanceRate = BinanceApiClient.CallApi(binanceApiType["checkPrice"], wg)
 	}()
+	go func() {
+		poloniexRate = PoloniexApiClient.CallApi(poloniexApiType["checkPrice"], wg)
+	}()
 	wg.Wait()
 
-	rates := []float64{coincheckRate, UsdToYen(binanceRate, yenPricePerDoller)}
+	rates := []float64{
+		coincheckRate,
+		UsdToYen(binanceRate, yenPricePerDoller),
+		UsdToYen(poloniexRate, yenPricePerDoller),
+	}
 	bestBuyExchange := pickBestRate("buy", rates)
 	bestSellExchange := pickBestRate("sell", rates)
 
 	// Expected profit
 	// BitBayが安いかも
-	fmt.Println(bestBuyExchange.Rate)
-	fmt.Println(bestSellExchange.Rate)
+	fmt.Printf("購入取引所： %s, 購入価格： %f\n", bestBuyExchange.Exchange, bestBuyExchange.Rate)
+	fmt.Printf("売却取引所： %s, 売却価格： %f\n", bestSellExchange.Exchange, bestSellExchange.Rate)
 	end := time.Now()
 	fmt.Printf("%f秒\n", (end.Sub(start)).Seconds())
 }
@@ -60,6 +72,8 @@ func pickBestRate(selectType string, rates []float64) BestRate {
 		bestRateExchange = "coincheck"
 	case UsdToYen(binanceRate, yenPricePerDoller):
 		bestRateExchange = "binance"
+	case UsdToYen(poloniexRate, yenPricePerDoller):
+		bestRateExchange = "poloniex"
 	}
 
 	return BestRate{bestRateExchange, bestRate}
