@@ -37,57 +37,60 @@ var poloniexRate float64
 var expectMinimumProfit = 1000
 
 func main() {
-	start := time.Now()
-	wg := &sync.WaitGroup{}
-	wg.Add(4)
-	go func() {
-		yenPricePerDoller = currency_convert.GetYenPricePerDoller(wg)
-	}()
-	go func() {
-		coincheckRate = CoincheckApiClient.CallApi(coincheckApiType["storeRate"], wg)
-	}()
-	go func() {
-		binanceRate = BinanceApiClient.CallApi(binanceApiType["checkPrice"], wg)
-	}()
-	go func() {
-		poloniexRate = PoloniexApiClient.CallApi(poloniexApiType["checkPrice"], wg)
-	}()
-	wg.Wait()
+	for {
+		start := time.Now()
+		wg := &sync.WaitGroup{}
+		wg.Add(4)
+		go func() {
+			yenPricePerDoller = currency_convert.GetYenPricePerDoller(wg)
+		}()
+		go func() {
+			coincheckRate = CoincheckApiClient.CallApi(coincheckApiType["storeRate"], wg)
+		}()
+		go func() {
+			binanceRate = BinanceApiClient.CallApi(binanceApiType["checkPrice"], wg)
+		}()
+		go func() {
+			poloniexRate = PoloniexApiClient.CallApi(poloniexApiType["checkPrice"], wg)
+		}()
+		wg.Wait()
 
-	// 取引所の名前と、その取引所のレートをマップ形式で格納
-	rateOfExchangeList := []map[string]float64{
-		{"Coincheck": coincheckRate},
-		{"Binance": UsdToYen(binanceRate, yenPricePerDoller)},
-		{"Poloniex": UsdToYen(poloniexRate, yenPricePerDoller)},
+		// 取引所の名前と、その取引所のレートをマップ形式で格納
+		rateOfExchangeList := []map[string]float64{
+			{"Coincheck": coincheckRate},
+			{"Binance": UsdToYen(binanceRate, yenPricePerDoller)},
+			{"Poloniex": UsdToYen(poloniexRate, yenPricePerDoller)},
+		}
+
+		// 各取引所のレートだけを配列に格納
+		rates := makeRatesList(rateOfExchangeList)
+
+		// 各取引所のレートを比較し、もっとも良い買いレート、売りレートを計算
+		bestBuyExchange := pickBestRate("buy", rates)
+		bestSellExchange := pickBestRate("sell", rates)
+
+		// もっとも良い買いレートと売りレートから、アービトラージ取引した場合の利益を計算する
+		willGetProfit := calcProfit(bestBuyExchange.Rate, bestSellExchange.Rate)
+
+		// 今回のAPIコールの結果を簡易ログファイルに出力
+		outputAllRatesToLog(rateOfExchangeList, willGetProfit)
+
+		// BitBayが安いかも
+		fmt.Printf("購入取引所： %s, 購入価格： %f\n", bestBuyExchange.Exchange, bestBuyExchange.Rate)
+		fmt.Printf("売却取引所： %s, 売却価格： %f\n", bestSellExchange.Exchange, bestSellExchange.Rate)
+
+		// 「今回のレートによる予想売買利益」 と 「期待する最低売買利益」 を比較し、前者が大きい場合は処理を進める。
+		// falseの場合は、再度リクエストを飛ばす
+		if willGetProfit > expectMinimumProfit {
+			fmt.Println("取引続けます！")
+		} else {
+			fmt.Println("利益少ないんで無理っす..")
+		}
+
+		end := time.Now()
+		fmt.Printf("%f秒\n", (end.Sub(start)).Seconds())
+		time.Sleep(3 * time.Second)
 	}
-
-	// 各取引所のレートだけを配列に格納
-	rates := makeRatesList(rateOfExchangeList)
-
-	// 各取引所のレートを比較し、もっとも良い買いレート、売りレートを計算
-	bestBuyExchange := pickBestRate("buy", rates)
-	bestSellExchange := pickBestRate("sell", rates)
-
-	// もっとも良い買いレートと売りレートから、アービトラージ取引した場合の利益を計算する
-	willGetProfit := calcProfit(bestBuyExchange.Rate, bestSellExchange.Rate)
-
-	// 今回のAPIコールの結果を簡易ログファイルに出力
-	outputAllRatesToLog(rateOfExchangeList, willGetProfit)
-
-	// BitBayが安いかも
-	fmt.Printf("購入取引所： %s, 購入価格： %f\n", bestBuyExchange.Exchange, bestBuyExchange.Rate)
-	fmt.Printf("売却取引所： %s, 売却価格： %f\n", bestSellExchange.Exchange, bestSellExchange.Rate)
-
-	// 「今回のレートによる予想売買利益」 と 「期待する最低売買利益」 を比較し、前者が大きい場合は処理を進める。
-	// falseの場合は、再度リクエストを飛ばす
-	if willGetProfit > expectMinimumProfit {
-		fmt.Println("取引続けます！")
-	} else {
-		fmt.Println("利益少ないんで無理っす..")
-	}
-
-	end := time.Now()
-	fmt.Printf("%f秒\n", (end.Sub(start)).Seconds())
 }
 
 func pickBestRate(selectType string, rates []float64) BestRate {
