@@ -105,6 +105,8 @@ func (client *BinanceApiClient) CallApi(pathAndMethod ApiPathAndMethod, wg *sync
 	response, err := client.HttpClient.Do(client.HttpRequest)
 	if err != nil {
 		log.Fatal(err)
+	} else if response.StatusCode != 200 {
+		log.Fatal("Binance APIからのデータ取得に失敗しました")
 	}
 
 	body, err := ioutil.ReadAll(response.Body)

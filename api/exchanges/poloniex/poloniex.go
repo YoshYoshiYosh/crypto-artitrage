@@ -98,6 +98,8 @@ func (client *PoloniexApiClient) CallApi(pathAndMethod ApiPathAndMethod, wg *syn
 	response, err := client.HttpClient.Do(client.HttpRequest)
 	if err != nil {
 		log.Fatal(err)
+	} else if response.StatusCode != 200 {
+		log.Fatal("Poloniex APIからのデータ取得に失敗しました")
 	}
 
 	body, err := ioutil.ReadAll(response.Body)

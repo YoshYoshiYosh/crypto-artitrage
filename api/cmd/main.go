@@ -37,6 +37,9 @@ var poloniexRate float64
 var expectMinimumProfit = 1000
 
 func main() {
+	// スクレイピング結果を取得するときの呼び方例
+	// result := utils.Scraping()
+	// fmt.Println(result)
 	for {
 		start := time.Now()
 		wg := &sync.WaitGroup{}

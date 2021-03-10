@@ -33,6 +33,8 @@ func GetYenPricePerDoller(wg *sync.WaitGroup) float64 {
 	response, err := client.Do(request)
 	if err != nil {
 		log.Fatal(err)
+	} else if response.StatusCode != 200 {
+		log.Fatal("通貨レートの取得に失敗しました")
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)

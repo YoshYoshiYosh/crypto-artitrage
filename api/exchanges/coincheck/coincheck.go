@@ -119,6 +119,8 @@ func (client *CoincheckApiClient) CallApi(pathAndMethod ApiPathAndMethod, wg *sy
 	response, err := client.HttpClient.Do(client.HttpRequest)
 	if err != nil {
 		log.Fatal(err)
+	} else if response.StatusCode != 200 {
+		log.Fatal("Coincheck APIからのデータ取得に失敗しました")
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
