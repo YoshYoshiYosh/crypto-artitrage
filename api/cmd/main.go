@@ -1,16 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"crypto-artitrage/api/exchanges/binance"
 	"crypto-artitrage/api/exchanges/coincheck"
 	"crypto-artitrage/api/exchanges/currency_convert"
 	"crypto-artitrage/api/exchanges/poloniex"
+	"crypto-artitrage/api/utils"
 	"fmt"
-	"log"
-	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -37,9 +33,6 @@ var poloniexRate float64
 var expectMinimumProfit = 1000
 
 func main() {
-	// スクレイピング結果を取得するときの呼び方例
-	// result := utils.Scraping()
-	// fmt.Println(result)
 	for {
 		start := time.Now()
 		wg := &sync.WaitGroup{}
@@ -76,7 +69,7 @@ func main() {
 		willGetProfit := calcProfit(bestBuyExchange.Rate, bestSellExchange.Rate)
 
 		// 今回のAPIコールの結果を簡易ログファイルに出力
-		outputAllRatesToLog(rateOfExchangeList, willGetProfit)
+		utils.OutputAllRatesToLog(rateOfExchangeList, willGetProfit)
 
 		// BitBayが安いかも
 		fmt.Printf("購入取引所： %s, 購入価格： %f\n", bestBuyExchange.Exchange, bestBuyExchange.Rate)
@@ -86,6 +79,16 @@ func main() {
 		// falseの場合は、再度リクエストを飛ばす
 		if willGetProfit > expectMinimumProfit {
 			fmt.Println("取引続けます！")
+			// bestBuyExchange  の取引所に対して購入APIを投げる
+
+			// bestSellExchange の取引所に 「ウォレット内の該当通貨残高」を取得するAPIを投げる（その1）
+
+			// bestSellExchange の取引所ウォレットに送金する
+
+			// bestSellExchange の取引所に 「ウォレット内の該当通貨残高」を取得するAPIを投げる（その2）
+			// → その1の結果と比較して、残高が増えたタイミングで次の処理に進む（残高が増えたことがわかるまで、1秒スパンでAPIコール）
+
+			// bestSellExchange の取引所に対して売却APIを投げる
 		} else {
 			fmt.Println("利益少ないんで無理っす..")
 		}
@@ -141,37 +144,6 @@ func selectRate(selectType string, rates []float64) float64 {
 		}
 	}
 	return bestRate
-}
-
-func outputAllRatesToLog(rateOfExchangeList []map[string]float64, expectProfit int) {
-	logFile, err := os.OpenFile("./api/logs/log.txt", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer logFile.Close()
-
-	logHeader := []byte(fmt.Sprintf("%s取引所%sレート", strings.Repeat(" ", 3), strings.Repeat(" ", 10)))
-	_, err = logFile.Write([]byte(string(logHeader) + string("\n")))
-
-	for _, info := range rateOfExchangeList {
-		for exchangeName, rate := range info {
-			rateToString := strconv.FormatFloat(rate, 'f', -1, 64)
-			inputToByte := []byte(fmt.Sprintf("%-15s", exchangeName+":") + rateToString + "\n")
-			_, err = logFile.Write([]byte(string(inputToByte)))
-
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	}
-	aboutProfit := []byte(fmt.Sprintf("予想売却益： %d円", expectProfit))
-	_, err = logFile.Write([]byte("\n" + string(aboutProfit) + string("\n")))
-
-	afterEqual := bytes.Repeat([]byte("-"), 30)
-	_, err = logFile.Write([]byte(string(afterEqual) + string("\n")))
-
 }
 
 func makeRatesList(rateOfExchangeList []map[string]float64) []float64 {

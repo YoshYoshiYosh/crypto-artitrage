@@ -3,6 +3,7 @@ package currency_convert
 import (
 	"bytes"
 	"crypto-artitrage/api/exchanges/common"
+	"crypto-artitrage/api/utils"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -34,7 +35,9 @@ func GetYenPricePerDoller(wg *sync.WaitGroup) float64 {
 	if err != nil {
 		log.Fatal(err)
 	} else if response.StatusCode != 200 {
-		log.Fatal("通貨レートの取得に失敗しました")
+		// ここにスクレイピングの処理入れる？
+		log.Println("通貨レートの取得に失敗しました。")
+		return utils.Scraping()
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)

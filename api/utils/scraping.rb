@@ -1,1 +1,1 @@
-print "this is sample string."
+print 108.55
