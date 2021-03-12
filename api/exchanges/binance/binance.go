@@ -35,7 +35,7 @@ const (
 )
 
 var tickerRate = map[string]string{
-	"xrp": "symbol=XRPUSDT",
+	"xrp": "symbol=XRPUSDC",
 }
 
 var cfg = common.Config

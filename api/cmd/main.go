@@ -16,7 +16,14 @@ type BestRate struct {
 	Rate     float64
 }
 
+// 1ドル何円で買えるか？ の値
 var yenPricePerDoller float64
+
+// 投入する最大金額
+var maxDeposit float64 = 150000
+
+// 期待する最低売買利益
+var expectMinimumProfit = 1000
 
 var CoincheckApiClient = coincheck.NewCoincheckApiClient()
 var coincheckApiType = coincheck.ApiType
@@ -29,8 +36,6 @@ var binanceRate float64
 var PoloniexApiClient = poloniex.NewPoloniexApiClient()
 var poloniexApiType = poloniex.ApiType
 var poloniexRate float64
-
-var expectMinimumProfit = 1000
 
 func main() {
 	for {
@@ -62,11 +67,12 @@ func main() {
 		rates := makeRatesList(rateOfExchangeList)
 
 		// 各取引所のレートを比較し、もっとも良い買いレート、売りレートを計算
+		// TODO： 第2引数にはrateOfExchangeListを渡すように修正
 		bestBuyExchange := pickBestRate("buy", rates)
 		bestSellExchange := pickBestRate("sell", rates)
 
 		// もっとも良い買いレートと売りレートから、アービトラージ取引した場合の利益を計算する
-		willGetProfit := calcProfit(bestBuyExchange.Rate, bestSellExchange.Rate)
+		willGetProfit := calcProfit(bestBuyExchange.Rate, bestSellExchange.Rate, maxDeposit)
 
 		// 今回のAPIコールの結果を簡易ログファイルに出力
 		utils.OutputAllRatesToLog(rateOfExchangeList, willGetProfit)
@@ -156,9 +162,7 @@ func makeRatesList(rateOfExchangeList []map[string]float64) []float64 {
 	return rates
 }
 
-func calcProfit(bestBuyRate, bestSellRate float64) int {
-	maxDeposit := float64(150000)
-
+func calcProfit(bestBuyRate, bestSellRate, maxDeposit float64) int {
 	willGetProfit := (maxDeposit/bestBuyRate)*bestSellRate - maxDeposit
 	return int(willGetProfit)
 }
